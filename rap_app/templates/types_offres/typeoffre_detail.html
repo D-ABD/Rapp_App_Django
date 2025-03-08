@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "composants/bouton_retour.html" %}
+
+<h2>Détail du type d'offre : {{ type_offre }}</h2>
+
+<p><strong>Nom :</strong> {{ type_offre.nom }}</p>
+{% if type_offre.nom == "autre" %}
+<p><strong>Type personnalisé :</strong> {{ type_offre.autre }}</p>
+{% endif %}
+
+<h3>Formations associées</h3>
+<ul>
+    {% for formation in formations %}
+    <li>{{ formation.titre }} - {{ formation.centre.nom }} ({{ formation.statut.nom }})</li>
+    {% empty %}
+    <li>Aucune formation associée.</li>
+    {% endfor %}
+</ul>
+
+<a href="{% url 'type-offre-update' type_offre.id %}">Modifier</a> |
+<a href="{% url 'type-offre-list' %}">Retour à la liste</a>
+{% endblock %}

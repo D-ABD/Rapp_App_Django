@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Mon Application{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome pour les icônes -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background-color: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh; /* Pour que le footer reste en bas de la page */
+        }
+        .sidebar {
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100;
+            width: 250px; /* Largeur de la sidebar */
+            background-color: #6c757d; /* Fond gris */
+            display: none; /* Cachée par défaut */
+            transition: transform 0.3s; /* Animation fluide */
+        }
+        .main-content {
+            margin-left: 0; /* Pas de marge par défaut */
+            margin-top: 60px; /* Hauteur de la navbar */
+            padding: 20px;
+            transition: margin-left 0.3s; /* Animation fluide */
+            flex: 1; /* Pour que le contenu principal prenne tout l'espace disponible */
+        }
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 101;
+            height: 60px; /* Hauteur de la navbar */
+        }
+        .btn-custom {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-custom:hover {
+            background-color: #0056b3;
+        }
+        footer {
+            flex-shrink: 0; /* Pour que le footer ne rétrécisse pas */
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    {% include "composants/navbar.html" %}
+
+    <!-- Sidebar -->
+    {% include "composants/sidebar.html" %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    {% include "composants/footer.html" %}
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Script pour ouvrir/fermer la sidebar -->
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const mainContent = document.querySelector('.main-content');
+
+            if (sidebar.style.display === 'none' || sidebar.style.display === '') {
+                sidebar.style.display = 'block'; // Ouvrir la sidebar
+                mainContent.style.marginLeft = '250px'; // Décaler le contenu principal
+                sidebarToggle.innerHTML = '<i class="fas fa-times"></i>'; // Changer l'icône en "fermer"
+            } else {
+                sidebar.style.display = 'none'; // Fermer la sidebar
+                mainContent.style.marginLeft = '0'; // Réinitialiser le contenu principal
+                sidebarToggle.innerHTML = '<i class="fas fa-bars"></i>'; // Changer l'icône en "ouvrir"
+            }
+        }
+    </script>
+</body>
+</html>

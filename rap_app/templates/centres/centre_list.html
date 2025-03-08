@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "composants/bouton_retour.html" %}
+
+<h2>Liste des Centres</h2>
+
+<form method="get">
+    <input type="text" name="q" placeholder="Rechercher un centre" value="{{ filters.q }}">
+    <input type="text" name="code_postal" placeholder="Filtrer par code postal" value="{{ filters.code_postal }}">
+    <button type="submit">Filtrer</button>
+</form>
+<table>
+    <thead>
+        <tr>
+            <th>Nom</th>
+            <th>Code Postal</th>
+            <th>Formations</th>
+            <th>Inscrits</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for centre in centres %}
+        <tr>
+            <td>{{ centre.nom }}</td>
+            <td>{{ centre.code_postal }}</td>
+            <td>{{ centre.nb_formations }}</td>
+            <td>{{ centre.nb_inscrits }}</td>
+            <td>
+                <a href="{% url 'centre-detail' centre.pk %}">Voir</a> |
+                <a href="{% url 'centre-update' centre.pk %}">Modifier</a> |
+                <a href="{% url 'centre-delete' centre.pk %}">Supprimer</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">Aucun centre trouvé.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'centre-create' %}">Ajouter un centre</a>
+
+{% endblock %}

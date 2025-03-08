@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "composants/bouton_retour.html" %}
+
+<h2>Détails du Statut : {{ statut.nom }}</h2>
+<p>Couleur : <span style="background-color: {{ statut.couleur }}; padding: 5px;">{{ statut.couleur }}</span></p>
+{% if statut.description_autre %}
+<p>Description : {{ statut.description_autre }}</p>
+{% endif %}
+
+<h3>Formations associées</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Nom</th>
+            <th>Centre</th>
+            <th>Type d'offre</th>
+            <th>Date de début</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for formation in formations %}
+        <tr>
+            <td>{{ formation.nom }}</td>
+            <td>{{ formation.centre.nom }}</td>
+            <td>{{ formation.type_offre.nom }}</td>
+            <td>{{ formation.start_date }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">Aucune formation associée.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'statut-update' statut.pk %}">Modifier</a> |
+<a href="{% url 'statut-delete' statut.pk %}">Supprimer</a>
+
+{% endblock %}

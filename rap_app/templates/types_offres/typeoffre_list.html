@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "composants/bouton_retour.html" %}
+
+<h2>Liste des types d'offres</h2>
+
+<!-- Formulaire de recherche -->
+<form method="GET">
+    <input type="text" name="q" value="{{ filters.q }}" placeholder="Rechercher un type d'offre...">
+    <button type="submit">Rechercher</button>
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>Nom</th>
+            <th>Nombre de formations</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for type_offre in types_offre %}
+        <tr>
+            <td>{{ type_offre }}</td>
+            <td>{{ type_offre.nb_formations }}</td>
+            <td>
+                <a href="{% url 'type-offre-detail' type_offre.id %}">Détails</a> |
+                <a href="{% url 'type-offre-update' type_offre.id %}">Modifier</a> |
+                <a href="{% url 'type-offre-delete' type_offre.id %}">Supprimer</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3">Aucun type d'offre trouvé.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'type-offre-create' %}">Ajouter un type d'offre</a>
+{% endblock %}

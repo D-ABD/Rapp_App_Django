@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "composants/bouton_retour.html" %}
+
+<h2>Détails du Centre : {{ centre.nom }}</h2>
+<p>Code Postal : {{ centre.code_postal }}</p>
+
+<h3>Formations associées</h3>
+<form method="get">
+    <label>Type d'offre :</label>
+    <select name="type_offre">
+        <option value="">-- Tous --</option>
+        {% for type in type_offres %}
+        <option value="{{ type.0 }}" {% if request.GET.type_offre == type.0|stringformat:"s" %}selected{% endif %}>
+            {{ type.1 }}
+        </option>
+        {% endfor %}
+    </select>
+
+    <label>Statut :</label>
+    <select name="statut">
+        <option value="">-- Tous --</option>
+        {% for statut in statuts %}
+        <option value="{{ statut.0 }}" {% if request.GET.statut == statut.0|stringformat:"s" %}selected{% endif %}>
+            {{ statut.1 }}
+        </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit">Filtrer</button>
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>Nom</th>
+            <th>Type</th>
+            <th>Statut</th>
+            <th>Début</th>
+            <th>Fin</th>
+            <th>Inscrits</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for formation in formations %}
+        <tr>
+            <td>{{ formation.nom }}</td>
+            <td>{{ formation.type_offre.nom }}</td>
+            <td style="color: {{ formation.statut.couleur }}">{{ formation.statut.nom }}</td>
+            <td>{{ formation.start_date }}</td>
+            <td>{{ formation.end_date }}</td>
+            <td>{{ formation.inscrits_total }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6">Aucune formation associée.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'centre-update' centre.pk %}">Modifier</a> |
+<a href="{% url 'centre-delete' centre.pk %}">Supprimer</a>
+
+{% endblock %}

@@ -1,0 +1,45 @@
+<!-- templates/composants/navbar.html -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+        <!-- Bouton pour ouvrir/fermer la sidebar -->
+        <button class="btn btn-sm btn-secondary me-3" id="sidebarToggle" onclick="toggleSidebar()">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Logo ou nom de l'application -->
+        <a class="navbar-brand" href="{% url 'home' %}">Mon Application</a>
+
+        <!-- Bouton pour les écrans mobiles -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <!-- Liens de navigation -->
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'home' %}">Accueil</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'centre-list' %}">Centres</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'statut-list' %}">Statuts</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'type-offre-list' %}">Types offres</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
+                </li>
+            </ul>
+
+            <!-- Section utilisateur (optionnelle) -->
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Connexion</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

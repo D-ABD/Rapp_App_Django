@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+ <!-- Bouton Retour réutilisable -->
+ {% include "composants/bouton_retour.html" %}
+<h2>Liste des Statuts</h2>
+
+<form method="get">
+    <input type="text" name="q" placeholder="Rechercher un statut" value="{{ filters.q }}">
+    <button type="submit">Rechercher</button>
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>Nom</th>
+            <th>Couleur</th>
+            <th>Nombre de formations</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for statut in statuts %}
+        <tr>
+            {# ✅ Affichage du nom ou de la description si "Autre" #}
+            <td>{{ statut.get_nom_display }}</td>
+
+            {# ✅ Affichage de la couleur avec un fond coloré #}
+            <td style="background-color: {{ statut.couleur }}; color: white; padding: 5px; text-align: center;">
+                {{ statut.couleur }}
+            </td>
+
+            <td>{{ statut.nb_formations }}</td>
+
+            <td>
+                <a href="{% url 'statut-detail' statut.pk %}">Voir</a> |
+                <a href="{% url 'statut-update' statut.pk %}">Modifier</a> |
+                <a href="{% url 'statut-delete' statut.pk %}">Supprimer</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">Aucun statut trouvé.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'statut-create' %}">Ajouter un statut</a>
+
+{% endblock %}
