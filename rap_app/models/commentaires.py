@@ -40,14 +40,19 @@ def update_formation_saturation(sender, instance, **kwargs):
     Met également à jour le `dernier_commentaire` pour un affichage rapide.
     """
     if instance.formation:
+        # Mise à jour directe via update() pour court-circuiter les méthodes save()
+        updates = {}
+        
         if instance.saturation is not None:
-            instance.formation.saturation = instance.saturation
-
-        dernier_commentaire = instance.formation.commentaires.order_by('-created_at').first()
-        instance.formation.dernier_commentaire = dernier_commentaire.contenu if dernier_commentaire else None
-
-        instance.formation.save()
-
+            updates['saturation'] = instance.saturation
+        
+        # Récupérer le dernier commentaire
+        dernier_commentaire = Commentaire.objects.filter(formation=instance.formation).order_by('-created_at').first()
+        updates['dernier_commentaire'] = dernier_commentaire.contenu if dernier_commentaire else None
+        
+        # Appliquer toutes les mises à jour en une seule opération
+        if updates:
+            Formation.objects.filter(id=instance.formation.id).update(**updates)
 
 @receiver(post_delete, sender=Commentaire)
 def handle_commentaire_delete(sender, instance, **kwargs):
@@ -56,6 +61,8 @@ def handle_commentaire_delete(sender, instance, **kwargs):
     - Met à jour le `dernier_commentaire` avec le commentaire précédent s'il en reste un.
     """
     if instance.formation:
-        dernier_commentaire = instance.formation.commentaires.order_by('-created_at').first()
-        instance.formation.dernier_commentaire = dernier_commentaire.contenu if dernier_commentaire else None
-        instance.formation.save()
+        # Récupérer directement le dernier commentaire à partir du modèle
+        dernier_commentaire = Commentaire.objects.filter(formation=instance.formation).order_by('-created_at').first()
+        Formation.objects.filter(id=instance.formation.id).update(
+            dernier_commentaire=dernier_commentaire.contenu if dernier_commentaire else None
+        )

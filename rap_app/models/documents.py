@@ -41,6 +41,12 @@ class Document(BaseModel):
         """
         nom_tronque = self.nom_fichier[:50] + ('...' if len(self.nom_fichier) > 50 else '')
         return f"{nom_tronque} ({self.get_type_document_display()})"
+    
+    def clean(self):
+        """Validation personnalisée pour vérifier la correspondance entre type et extension."""
+        super().clean()
+        if self.fichier and self.type_document:
+            validate_file_extension(self.fichier, self.type_document)
 
     def save(self, *args, **kwargs):
         """
@@ -49,11 +55,10 @@ class Document(BaseModel):
         """
         self.full_clean()  # Exécute la validation avant la sauvegarde.
 
-        if self.fichier:
-            self.taille_fichier = self.fichier.size // 1024  # Convertit la taille en Ko
-
+        if self.fichier and hasattr(self.fichier, 'size'):
+            self.taille_fichier = max(1, self.fichier.size // 1024)  # Au moins 1 Ko pour éviter les zeros
+        
         super().save(*args, **kwargs)
-
     class Meta:
         verbose_name = "Document"
         verbose_name_plural = "Documents"
@@ -64,9 +69,10 @@ class Document(BaseModel):
 
 
 ### 🚀 Validation : Empêcher l'upload d'un fichier invalide
-def validate_file_extension(value):
+def validate_file_extension(value, type_doc=None):
     """
     Vérifie que le fichier téléchargé correspond bien au type déclaré.
+    Le paramètre type_doc peut être passé à la validation.
     """
     ext = os.path.splitext(value.name)[1].lower()
     valid_extensions = {
@@ -75,15 +81,14 @@ def validate_file_extension(value):
         'contrat': ['.pdf', '.doc', '.docx'],
         'autre': []  # Autorise tout pour "Autre"
     }
-
-    # Vérifie si le type_document déclaré correspond bien à l'extension du fichier
-    type_doc = Document.objects.filter(fichier=value).first()
-    if type_doc and ext not in valid_extensions.get(type_doc.type_document, []):
-        raise ValidationError(f"Le fichier {value.name} ne correspond pas au type {type_doc.get_type_document_display()}.")
-
-# Ajoute la validation au champ `fichier`
-Document.fichier.validators = [validate_file_extension]
-
+    
+    # Si aucun type n'est fourni ou si c'est "autre", on accepte le fichier
+    if not type_doc or type_doc == Document.AUTRE:
+        return
+        
+    # Vérifie si l'extension correspond au type fourni
+    if ext not in valid_extensions.get(type_doc, []):
+        raise ValidationError(f"Le fichier {value.name} ne correspond pas au type {dict(Document.TYPE_DOCUMENT_CHOICES).get(type_doc, type_doc)}.")
 
 ### 🚀 Suppression automatique des anciens fichiers avant mise à jour
 @receiver(pre_save, sender=Document)

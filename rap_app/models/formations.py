@@ -145,11 +145,6 @@ class Formation(BaseModel):
         """
         return self.documents.all()
 
-    
-    @property
-    def total_evenements(self):
-        """Retourne le nombre total d'événements liés à la formation."""
-        return self.evenements.count()
 
     @property
     def is_a_recruter(self):
@@ -188,7 +183,12 @@ class Formation(BaseModel):
         return f"{self.nom} ({self.centre.nom if self.centre else 'Centre inconnu'})"
     
     def save(self, *args, **kwargs):
-        """Mise à jour automatique de la saturation avant chaque sauvegarde."""
-        super().save(*args, **kwargs)  # ✅ On sauvegarde d'abord l'objet pour éviter les conflits
-        self.saturation = (self.total_inscrits / self.total_places) * 100 if self.total_places > 0 else 0
-        super().save(update_fields=["saturation"])  # ✅ On met à jour uniquement `saturation`
+        """Mise à jour automatique de la saturation lors de la sauvegarde."""
+        # Calcul de la saturation avant la sauvegarde
+        if self.total_places > 0:
+            self.saturation = (self.total_inscrits / self.total_places) * 100
+        else:
+            self.saturation = 0
+            
+        # Une seule sauvegarde avec toutes les modifications
+        super().save(*args, **kwargs)

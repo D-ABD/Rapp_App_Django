@@ -1,484 +1,622 @@
+import os
+import tempfile
+from datetime import date, timedelta
+
 from django.test import TestCase
 from django.core.exceptions import ValidationError
-from django.utils import timezone
-from datetime import datetime, timedelta
-import uuid
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.conf import settings
 
-from ..models import (
-    BaseModel, Centre, Statut, TypeOffre, Utilisateur,
-    Formation, Commentaire, Ressource, Evenement, 
-    Document, HistoriqueFormation, Rapport, Parametre, Recherche
-)
+from ..models.base import BaseModel
+from ..models.centres import Centre
+from ..models.commentaires import Commentaire
+from ..models.documents import Document, validate_file_extension
+from ..models.entreprises import Entreprise
+from ..models.evenements import Evenement
+from ..models.formations import Formation
+from ..models.historique_formations import HistoriqueFormation
+from ..models.statut import Statut, get_default_color
+from ..models.types_offre import TypeOffre
+
+User = get_user_model()
 
 
 class CentreTestCase(TestCase):
+    """Tests pour le modèle Centre"""
+
     def setUp(self):
         self.centre = Centre.objects.create(
-            nom="Centre de Test",
+            nom="Centre de Formation Test",
             code_postal="75001"
         )
 
-    def test_str_representation(self):
-        self.assertEqual(str(self.centre), "Centre de Test")
-    
-    def test_code_postal_validation(self):
-        # Code postal valide
-        self.centre.code_postal = "75001"
-        self.centre.full_clean()  # Ne devrait pas lever d'exception
+    def test_centre_creation(self):
+        """Test de création d'un centre"""
+        self.assertEqual(self.centre.nom, "Centre de Formation Test")
+        self.assertEqual(self.centre.code_postal, "75001")
+        self.assertIsNotNone(self.centre.created_at)
+        self.assertIsNotNone(self.centre.updated_at)
+
+    def test_centre_str(self):
+        """Test de la méthode __str__"""
+        self.assertEqual(str(self.centre), "Centre de Formation Test")
+
+    def test_centre_full_address(self):
+        """Test de la méthode full_address"""
+        self.assertEqual(self.centre.full_address(), "Centre de Formation Test (75001)")
         
-        # Code postal invalide
-        self.centre.code_postal = "7500A"
+        # Test sans code postal
+        centre_sans_cp = Centre.objects.create(nom="Centre Sans CP")
+        self.assertEqual(centre_sans_cp.full_address(), "Centre Sans CP")
+
+    def test_code_postal_validation(self):
+        """Test de la validation du code postal"""
+        # Code postal invalide (lettres)
+        centre_invalide = Centre(nom="Centre Invalide", code_postal="ABCDE")
         with self.assertRaises(ValidationError):
-            self.centre.full_clean()
+            centre_invalide.full_clean()
+            
+        # Code postal invalide (longueur)
+        centre_invalide2 = Centre(nom="Centre Invalide 2", code_postal="123")
+        with self.assertRaises(ValidationError):
+            centre_invalide2.full_clean()
+
+
+class EntrepriseTestCase(TestCase):
+    """Tests pour le modèle Entreprise"""
+
+    def setUp(self):
+        self.entreprise = Entreprise.objects.create(
+            nom="Entreprise Test",
+            secteur_activite="IT",
+            contact_nom="Jean Dupont",
+            contact_email="jean@example.com"
+        )
+
+    def test_entreprise_creation(self):
+        """Test de création d'une entreprise"""
+        self.assertEqual(self.entreprise.nom, "Entreprise Test")
+        self.assertEqual(self.entreprise.secteur_activite, "IT")
+        self.assertEqual(self.entreprise.contact_nom, "Jean Dupont")
+        self.assertEqual(self.entreprise.contact_email, "jean@example.com")
+
+    def test_entreprise_str(self):
+        """Test de la méthode __str__"""
+        self.assertEqual(str(self.entreprise), "Entreprise Test")
 
 
 class StatutTestCase(TestCase):
+    """Tests pour le modèle Statut"""
+
     def setUp(self):
-        self.statut = Statut.objects.create(
-            nom=Statut.FORMATION_EN_COURS,
-            couleur="#FF0000"
+        self.statut_defini = Statut.objects.create(
+            nom=Statut.RECRUTEMENT_EN_COURS
         )
         self.statut_autre = Statut.objects.create(
             nom=Statut.AUTRE,
-            couleur="#00FF00",
             description_autre="Statut personnalisé"
         )
+        self.statut_avec_couleur = Statut.objects.create(
+            nom=Statut.FORMATION_EN_COURS,
+            couleur="#FF5733"
+        )
 
-    def test_str_representation(self):
-        self.assertEqual(str(self.statut), "Formation en cours - #FF0000")
-        self.assertEqual(str(self.statut_autre), "Statut personnalisé - #00FF00")
-    
-    def test_autre_validation(self):
-        # Création d'un statut 'autre' sans description devrait échouer
+    def test_statut_creation(self):
+        """Test de création d'un statut"""
+        self.assertEqual(self.statut_defini.nom, Statut.RECRUTEMENT_EN_COURS)
+        self.assertEqual(self.statut_autre.nom, Statut.AUTRE)
+        self.assertEqual(self.statut_autre.description_autre, "Statut personnalisé")
+
+    def test_get_default_color(self):
+        """Test de la fonction get_default_color"""
+        self.assertEqual(get_default_color(Statut.RECRUTEMENT_EN_COURS), "#4CAF50")  # Vert
+        self.assertEqual(get_default_color(Statut.FORMATION_ANNULEE), "#F44336")    # Rouge
+        self.assertEqual(get_default_color("statut_inexistant"), "#607D8B")          # Couleur par défaut
+
+    def test_couleur_par_defaut(self):
+        """Test de l'attribution automatique de couleur"""
+        self.assertIsNotNone(self.statut_defini.couleur)
+        self.assertEqual(self.statut_defini.couleur, "#4CAF50")  # Couleur par défaut pour "recrutement_en_cours"
+
+    def test_couleur_personnalisee(self):
+        """Test de la conservation de la couleur personnalisée"""
+        self.assertEqual(self.statut_avec_couleur.couleur, "#FF5733")
+
+    def test_validation_autre(self):
+        """Test de la validation pour le type 'autre'"""
+        statut_invalide = Statut(nom=Statut.AUTRE)
         with self.assertRaises(ValidationError):
-            Statut.objects.create(
-                nom=Statut.AUTRE,
-                couleur="#0000FF"
-            )
+            statut_invalide.full_clean()
+
+    def test_str_method(self):
+        """Test de la méthode __str__"""
+        self.assertEqual(str(self.statut_defini), "Recrutement en cours - #4CAF50")
+        self.assertEqual(str(self.statut_autre), "Statut personnalisé - #795548")
 
 
 class TypeOffreTestCase(TestCase):
+    """Tests pour le modèle TypeOffre"""
+
     def setUp(self):
-        self.type_offre = TypeOffre.objects.create(
+        self.type_defini = TypeOffre.objects.create(
             nom=TypeOffre.CRIF
         )
-        self.type_offre_autre = TypeOffre.objects.create(
+        self.type_autre = TypeOffre.objects.create(
             nom=TypeOffre.AUTRE,
-            autre="Type d'offre personnalisé"
+            autre="Type personnalisé"
         )
 
-    def test_str_representation(self):
-        self.assertEqual(str(self.type_offre), "CRIF")
-        self.assertEqual(str(self.type_offre_autre), "Type d'offre personnalisé")
-    
-    def test_autre_validation(self):
-        # Création d'un type d'offre 'autre' sans description devrait échouer
+    def test_type_offre_creation(self):
+        """Test de création d'un type d'offre"""
+        self.assertEqual(self.type_defini.nom, TypeOffre.CRIF)
+        self.assertEqual(self.type_autre.nom, TypeOffre.AUTRE)
+        self.assertEqual(self.type_autre.autre, "Type personnalisé")
+
+    def test_validation_autre(self):
+        """Test de la validation pour le type 'autre'"""
+        type_invalide = TypeOffre(nom=TypeOffre.AUTRE)
         with self.assertRaises(ValidationError):
-            TypeOffre.objects.create(
-                nom=TypeOffre.AUTRE
-            )
+            type_invalide.full_clean()
 
+    def test_str_method(self):
+        """Test de la méthode __str__"""
+        self.assertEqual(str(self.type_defini), "CRIF")
+        self.assertEqual(str(self.type_autre), "Type personnalisé")
 
-class UtilisateurTestCase(TestCase):
-    def setUp(self):
-        self.utilisateur = Utilisateur.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="password123",
-            first_name="Test",
-            last_name="User",
-            role="Testeur"
-        )
-
-    def test_str_representation(self):
-        self.assertEqual(str(self.utilisateur), "Test User")
-        
-        # Utilisateur sans nom
-        user_sans_nom = Utilisateur.objects.create_user(
-            username="useronly",
-            password="password123"
-        )
-        self.assertEqual(str(user_sans_nom), "useronly")
+    def test_is_personnalise(self):
+        """Test de la méthode is_personnalise"""
+        self.assertFalse(self.type_defini.is_personnalise())
+        self.assertTrue(self.type_autre.is_personnalise())
 
 
 class FormationTestCase(TestCase):
+    """Tests pour le modèle Formation"""
+
     def setUp(self):
-        self.centre = Centre.objects.create(nom="Centre de Test")
+        self.centre = Centre.objects.create(nom="Centre Test")
+        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS)
         self.type_offre = TypeOffre.objects.create(nom=TypeOffre.CRIF)
-        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS, couleur="#FF0000")
+        self.user = User.objects.create_user(username="testuser", password="password")
+        self.entreprise = Entreprise.objects.create(nom="Entreprise Test")
         
+        # Créer une formation de base
         self.formation = Formation.objects.create(
-            nom="Formation Test",
+            nom="Formation Python",
             centre=self.centre,
-            type_offre=self.type_offre,
             statut=self.statut,
-            start_date=timezone.now().date(),
-            end_date=timezone.now().date() + timedelta(days=90),
-            prevus_crif=15,
+            type_offre=self.type_offre,
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=90),
+            prevus_crif=10,
             prevus_mp=5,
-            inscrits_crif=10,
-            inscrits_mp=3
+            inscrits_crif=3,
+            inscrits_mp=2,
+            utilisateur=self.user
         )
+        
+        # Ajouter une entreprise à la formation
+        self.formation.entreprises.add(self.entreprise)
 
-    def test_str_representation(self):
-        self.assertEqual(str(self.formation), "Formation Test")
-    
+    def test_formation_creation(self):
+        """Test de création d'une formation"""
+        self.assertEqual(self.formation.nom, "Formation Python")
+        self.assertEqual(self.formation.centre, self.centre)
+        self.assertEqual(self.formation.statut, self.statut)
+        self.assertEqual(self.formation.type_offre, self.type_offre)
+        self.assertEqual(self.formation.prevus_crif, 10)
+        self.assertEqual(self.formation.prevus_mp, 5)
+        self.assertEqual(self.formation.inscrits_crif, 3)
+        self.assertEqual(self.formation.inscrits_mp, 2)
+        self.assertEqual(self.formation.utilisateur, self.user)
+        self.assertEqual(self.formation.entreprises.count(), 1)
+
     def test_total_places(self):
-        self.assertEqual(self.formation.total_places, 20)
-    
-    def test_inscrits_total(self):
-        self.assertEqual(self.formation.inscrits_total, 13)
-    
+        """Test de la propriété total_places"""
+        self.assertEqual(self.formation.total_places, 15)  # 10 CRIF + 5 MP
+
+    def test_total_inscrits(self):
+        """Test de la propriété total_inscrits"""
+        self.assertEqual(self.formation.total_inscrits, 5)  # 3 CRIF + 2 MP
+
     def test_a_recruter(self):
-        self.assertEqual(self.formation.a_recruter, 7)
-    
-    def test_taux_remplissage(self):
-        self.assertEqual(self.formation.taux_remplissage, 65.0)
-    
-    def test_est_active(self):
-        self.assertTrue(self.formation.est_active)
-        
-        # Formation passée
-        formation_passee = Formation.objects.create(
-            nom="Formation Passée",
-            centre=self.centre,
-            type_offre=self.type_offre,
-            statut=self.statut,
-            start_date=timezone.now().date() - timedelta(days=180),
-            end_date=timezone.now().date() - timedelta(days=90)
-        )
-        self.assertFalse(formation_passee.est_active)
-    
-    def test_validation_dates(self):
-        # Date de fin antérieure à la date de début
-        formation_invalide = Formation(
-            nom="Formation Invalide",
-            centre=self.centre,
-            type_offre=self.type_offre,
-            statut=self.statut,
-            start_date=timezone.now().date(),
-            end_date=timezone.now().date() - timedelta(days=1)
-        )
-        with self.assertRaises(ValidationError):
-            formation_invalide.full_clean()
-    
-    def test_formations_actives(self):
-        # Ajouter une formation passée
-        Formation.objects.create(
-            nom="Formation Passée",
-            centre=self.centre,
-            type_offre=self.type_offre,
-            statut=self.statut,
-            start_date=timezone.now().date() - timedelta(days=180),
-            end_date=timezone.now().date() - timedelta(days=90)
-        )
-        
-        # Vérifier que le manager personnalisé fonctionne
-        actives = Formation.objects.formations_actives()
-        self.assertEqual(actives.count(), 1)
-        self.assertEqual(actives[0].nom, "Formation Test")
+        """Test de la propriété a_recruter"""
+        self.assertEqual(self.formation.a_recruter, 10)  # 15 places - 5 inscrits
 
+    def test_saturation_calculation(self):
+        """Test du calcul automatique de la saturation"""
+        # Le calcul devrait être (5/15)*100 = 33.33%
+        self.assertAlmostEqual(self.formation.saturation, 33.33, places=2)
+        
+        # Modifions les inscrits et vérifions que la saturation est recalculée
+        self.formation.inscrits_crif = 8
+        self.formation.save()
+        self.assertAlmostEqual(self.formation.saturation, 66.67, places=2)  # (10/15)*100
 
-class CommentaireTestCase(TestCase):
-    def setUp(self):
-        self.centre = Centre.objects.create(nom="Centre de Test")
-        self.type_offre = TypeOffre.objects.create(nom=TypeOffre.CRIF)
-        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS, couleur="#FF0000")
-        self.utilisateur = Utilisateur.objects.create_user(username="testuser")
+    def test_is_a_recruter(self):
+        """Test de la propriété is_a_recruter"""
+        self.assertTrue(self.formation.is_a_recruter)  # 10 places à pourvoir
         
-        self.formation = Formation.objects.create(
-            nom="Formation Test",
-            centre=self.centre,
-            type_offre=self.type_offre,
-            statut=self.statut
-        )
-        
-        self.commentaire = Commentaire.objects.create(
-            formation=self.formation,
-            auteur="Jean Dupont",
-            contenu="Ceci est un commentaire de test",
-            utilisateur=self.utilisateur
-        )
+        # Remplir toutes les places
+        self.formation.inscrits_crif = 10
+        self.formation.inscrits_mp = 5
+        self.formation.save()
+        self.assertFalse(self.formation.is_a_recruter)  # 0 places à pourvoir
 
-    def test_str_representation(self):
-        self.assertEqual(str(self.commentaire), f"Commentaire de {self.utilisateur} pour la formation Formation Test")
+    def test_str_method(self):
+        """Test de la méthode __str__"""
+        self.assertEqual(str(self.formation), "Formation Python (Centre Test)")
 
-
-class RessourceTestCase(TestCase):
-    def setUp(self):
-        self.centre = Centre.objects.create(nom="Centre de Test")
-        self.type_offre = TypeOffre.objects.create(nom=TypeOffre.CRIF)
-        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS, couleur="#FF0000")
-        
-        self.formation = Formation.objects.create(
-            nom="Formation Test",
-            centre=self.centre,
-            type_offre=self.type_offre,
-            statut=self.statut,
-            inscrits_crif=8,
-            inscrits_mp=4
-        )
-        
-        self.ressource = Ressource.objects.create(
-            formation=self.formation,
-            nombre_candidats=20,
-            nombre_entretiens=15
-        )
-
-    def test_nombre_inscrits(self):
-        self.assertEqual(self.ressource.nombre_inscrits, 12)
-    
-    def test_taux_transformation(self):
-        self.assertEqual(self.ressource.taux_transformation, 60.0)  # 12/20 * 100
-        
-        # Test avec nombre_candidats à 0
-        self.ressource.nombre_candidats = 0
-        self.ressource.save()
-        self.assertEqual(self.ressource.taux_transformation, 0)
-    
-    def test_str_representation(self):
-        self.assertEqual(str(self.ressource), "Ressource pour Formation Test")
-        
-        # Test sans formation associée
-        ressource_sans_formation = Ressource.objects.create(
-            nombre_candidats=10
-        )
-        self.assertEqual(str(ressource_sans_formation), "Ressource pour Formation inconnue")
-
-
-class EvenementTestCase(TestCase):
-    def setUp(self):
-        self.centre = Centre.objects.create(nom="Centre de Test")
-        self.type_offre = TypeOffre.objects.create(nom=TypeOffre.CRIF)
-        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS, couleur="#FF0000")
-        
-        self.formation = Formation.objects.create(
-            nom="Formation Test",
-            centre=self.centre,
-            type_offre=self.type_offre,
-            statut=self.statut
-        )
-        
-        self.evenement = Evenement.objects.create(
-            formation=self.formation,
-            type_evenement=Evenement.INFO_PRESENTIEL,
-            event_date=timezone.now().date(),
-            details="Détails de l'événement"
-        )
-        
-        self.evenement_autre = Evenement.objects.create(
-            formation=self.formation,
-            type_evenement=Evenement.AUTRE,
-            event_date=timezone.now().date(),
-            description_autre="Type d'événement personnalisé"
-        )
-
-    def test_str_representation(self):
-        self.assertEqual(
-            str(self.evenement), 
-            f"Information collective présentiel - {timezone.now().date()}"
-        )
-    
-    def test_autre_validation(self):
-        # Création d'un événement 'autre' sans description devrait échouer
-        with self.assertRaises(ValidationError):
-            Evenement.objects.create(
-                formation=self.formation,
-                type_evenement=Evenement.AUTRE,
-                event_date=timezone.now().date()
-            )
-    
-    def test_update_ressource_count(self):
-        # Vérifier si le nombre d'événements est mis à jour
-        ressource, created = Ressource.objects.get_or_create(formation=self.formation)
-        self.assertEqual(ressource.nombre_evenements, 2)  # 2 événements ont été créés
-        
-        # Créer un nouvel événement
+    def test_get_evenements_par_type(self):
+        """Test de la méthode get_nombre_evenements_par_type"""
+        # Créer quelques événements
         Evenement.objects.create(
             formation=self.formation,
             type_evenement=Evenement.JOB_DATING,
-            event_date=timezone.now().date()
+            event_date=date.today()
+        )
+        Evenement.objects.create(
+            formation=self.formation,
+            type_evenement=Evenement.JOB_DATING,
+            event_date=date.today() + timedelta(days=7)
+        )
+        Evenement.objects.create(
+            formation=self.formation,
+            type_evenement=Evenement.FORUM,
+            event_date=date.today() + timedelta(days=14)
         )
         
-        # Vérifier que le compteur est mis à jour
-        ressource.refresh_from_db()
-        self.assertEqual(ressource.nombre_evenements, 3)
+        # Vérifier le comptage
+        evenements_par_type = self.formation.get_nombre_evenements_par_type()
+        self.assertEqual(len(evenements_par_type), 2)  # 2 types différents
+        self.assertEqual(evenements_par_type[Evenement.JOB_DATING], 2)
+        self.assertEqual(evenements_par_type[Evenement.FORUM], 1)
+        
+        # Vérifier que nombre_evenements est mis à jour (géré par les signaux)
+        self.assertEqual(self.formation.nombre_evenements, 3)
+
+
+class CommentaireTestCase(TestCase):
+    """Tests pour le modèle Commentaire"""
+
+    def setUp(self):
+        # Créer les objets nécessaires
+        self.centre = Centre.objects.create(nom="Centre Test")
+        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS)
+        self.type_offre = TypeOffre.objects.create(nom=TypeOffre.CRIF)
+        self.user = User.objects.create_user(username="testuser", password="password")
+        
+        self.formation = Formation.objects.create(
+            nom="Formation Test",
+            centre=self.centre,
+            statut=self.statut,
+            type_offre=self.type_offre,
+            prevus_crif=10,
+            inscrits_crif=5,
+            utilisateur=self.user
+        )
+
+    def test_commentaire_creation(self):
+        """Test de création d'un commentaire"""
+        commentaire = Commentaire.objects.create(
+            formation=self.formation,
+            utilisateur=self.user,
+            contenu="Ceci est un commentaire de test",
+            saturation=60
+        )
+        
+        self.assertEqual(commentaire.formation, self.formation)
+        self.assertEqual(commentaire.utilisateur, self.user)
+        self.assertEqual(commentaire.contenu, "Ceci est un commentaire de test")
+        self.assertEqual(commentaire.saturation, 60)
+
+    def test_str_method(self):
+        """Test de la méthode __str__"""
+        commentaire = Commentaire.objects.create(
+            formation=self.formation,
+            utilisateur=self.user,
+            contenu="Test str"
+        )
+        expected_str = f"Commentaire de {self.user} sur {self.formation.nom} ({commentaire.created_at.strftime('%d/%m/%Y')})"
+        self.assertEqual(str(commentaire), expected_str)
+
+    def test_signal_update_formation_saturation(self):
+        """Test du signal qui met à jour la saturation de la formation"""
+        # Créer un commentaire avec une saturation
+        commentaire = Commentaire.objects.create(
+            formation=self.formation,
+            utilisateur=self.user,
+            contenu="Test de saturation",
+            saturation=75
+        )
+        
+        # Vérifier que la formation a été mise à jour
+        self.formation.refresh_from_db()
+        self.assertEqual(self.formation.saturation, 75)  # La valeur de saturation du commentaire
+        self.assertEqual(self.formation.dernier_commentaire, "Test de saturation")
+
+    def test_signal_update_dernier_commentaire(self):
+        """Test du signal qui met à jour le dernier commentaire"""
+        # Créer plusieurs commentaires
+        commentaire1 = Commentaire.objects.create(
+            formation=self.formation,
+            utilisateur=self.user,
+            contenu="Premier commentaire"
+        )
+        
+        commentaire2 = Commentaire.objects.create(
+            formation=self.formation,
+            utilisateur=self.user,
+            contenu="Deuxième commentaire"
+        )
+        
+        # Vérifier que le dernier commentaire est bien le dernier créé
+        self.formation.refresh_from_db()
+        self.assertEqual(self.formation.dernier_commentaire, "Deuxième commentaire")
+        
+        # Supprimer le dernier commentaire et vérifier la mise à jour
+        commentaire2.delete()
+        self.formation.refresh_from_db()
+        self.assertEqual(self.formation.dernier_commentaire, "Premier commentaire")
+
+
+class EvenementTestCase(TestCase):
+    """Tests pour le modèle Evenement"""
+
+    def setUp(self):
+        # Créer les objets nécessaires
+        self.centre = Centre.objects.create(nom="Centre Test")
+        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS)
+        self.type_offre = TypeOffre.objects.create(nom=TypeOffre.CRIF)
+        
+        self.formation = Formation.objects.create(
+            nom="Formation Test",
+            centre=self.centre,
+            statut=self.statut,
+            type_offre=self.type_offre
+        )
+
+    def test_evenement_creation(self):
+        """Test de création d'un événement"""
+        evenement = Evenement.objects.create(
+            formation=self.formation,
+            type_evenement=Evenement.JOB_DATING,
+            event_date=date.today(),
+            details="Détails de l'événement"
+        )
+        
+        self.assertEqual(evenement.formation, self.formation)
+        self.assertEqual(evenement.type_evenement, Evenement.JOB_DATING)
+        self.assertEqual(evenement.event_date, date.today())
+        self.assertEqual(evenement.details, "Détails de l'événement")
+
+    def test_validation_autre(self):
+        """Test de validation pour le type 'autre'"""
+        # Sans description_autre, doit échouer
+        evenement_invalide = Evenement(
+            formation=self.formation,
+            type_evenement=Evenement.AUTRE,
+            event_date=date.today()
+        )
+        with self.assertRaises(ValidationError):
+            evenement_invalide.full_clean()
+        
+        # Avec description_autre, doit réussir
+        evenement_valide = Evenement(
+            formation=self.formation,
+            type_evenement=Evenement.AUTRE,
+            description_autre="Type personnalisé",
+            event_date=date.today()
+        )
+        evenement_valide.full_clean()  # Ne doit pas lever d'exception
+
+    def test_str_method(self):
+        """Test de la méthode __str__"""
+        evenement = Evenement.objects.create(
+            formation=self.formation,
+            type_evenement=Evenement.JOB_DATING,
+            event_date=date.today()
+        )
+        expected_str = f"Job dating - {date.today().strftime('%d/%m/%Y')}"
+        self.assertEqual(str(evenement), expected_str)
+        
+        # Test sans date
+        evenement_sans_date = Evenement.objects.create(
+            formation=self.formation,
+            type_evenement=Evenement.FORUM
+        )
+        self.assertEqual(str(evenement_sans_date), "Forum - Date inconnue")
+
+    def test_signal_update_nombre_evenements(self):
+        """Test des signaux qui mettent à jour nombre_evenements"""
+        # Au départ, nombre_evenements doit être 0
+        self.assertEqual(self.formation.nombre_evenements, 0)
+        
+        # Créer un événement
+        evenement1 = Evenement.objects.create(
+            formation=self.formation,
+            type_evenement=Evenement.JOB_DATING,
+            event_date=date.today()
+        )
+        self.formation.refresh_from_db()
+        self.assertEqual(self.formation.nombre_evenements, 1)
+        
+        # Créer un autre événement
+        evenement2 = Evenement.objects.create(
+            formation=self.formation,
+            type_evenement=Evenement.FORUM,
+            event_date=date.today() + timedelta(days=7)
+        )
+        self.formation.refresh_from_db()
+        self.assertEqual(self.formation.nombre_evenements, 2)
+        
+        # Supprimer un événement
+        evenement1.delete()
+        self.formation.refresh_from_db()
+        self.assertEqual(self.formation.nombre_evenements, 1)
 
 
 class DocumentTestCase(TestCase):
+    """Tests pour le modèle Document"""
+
     def setUp(self):
-        self.centre = Centre.objects.create(nom="Centre de Test")
+        # Créer les objets nécessaires
+        self.centre = Centre.objects.create(nom="Centre Test")
+        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS)
         self.type_offre = TypeOffre.objects.create(nom=TypeOffre.CRIF)
-        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS, couleur="#FF0000")
         
         self.formation = Formation.objects.create(
             nom="Formation Test",
             centre=self.centre,
-            type_offre=self.type_offre,
-            statut=self.statut
+            statut=self.statut,
+            type_offre=self.type_offre
         )
         
-        self.document = Document.objects.create(
-            formation=self.formation,
-            nom_fichier="document_test.pdf",
-            fichier="formations/documents/test.pdf",
-            source="Source externe"
-        )
+        # Créer un fichier temporaire pour les tests
+        self.temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+        self.temp_pdf.write(b"PDF test content")
+        self.temp_pdf.close()
+        
+        self.temp_image = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+        self.temp_image.write(b"JPG test content")
+        self.temp_image.close()
 
-    def test_str_representation(self):
-        self.assertEqual(str(self.document), "document_test.pdf")
+    def tearDown(self):
+        # Supprimer les fichiers temporaires
+        if os.path.exists(self.temp_pdf.name):
+            os.unlink(self.temp_pdf.name)
+        if os.path.exists(self.temp_image.name):
+            os.unlink(self.temp_image.name)
+
+    def test_validate_file_extension(self):
+        """Test de la fonction validate_file_extension"""
+        # Créer des fichiers de test
+        pdf_file = SimpleUploadedFile("test.pdf", b"pdf content", content_type="application/pdf")
+        jpg_file = SimpleUploadedFile("test.jpg", b"jpg content", content_type="image/jpeg")
+        txt_file = SimpleUploadedFile("test.txt", b"text content", content_type="text/plain")
+        
+        # Tests de validation réussis
+        validate_file_extension(pdf_file, Document.PDF)        # PDF pour type PDF
+        validate_file_extension(jpg_file, Document.IMAGE)      # JPG pour type IMAGE
+        validate_file_extension(pdf_file, Document.CONTRAT)    # PDF pour type CONTRAT
+        validate_file_extension(txt_file, Document.AUTRE)      # TXT pour type AUTRE
+        
+        # Tests de validation échoués
+        with self.assertRaises(ValidationError):
+            validate_file_extension(txt_file, Document.PDF)     # TXT pour type PDF
+        
+        with self.assertRaises(ValidationError):
+            validate_file_extension(pdf_file, Document.IMAGE)   # PDF pour type IMAGE
+
+    def test_document_creation(self):
+        """Test de création d'un document"""
+        # Créer un document PDF
+        with open(self.temp_pdf.name, 'rb') as f:
+            document = Document.objects.create(
+                formation=self.formation,
+                nom_fichier="Test PDF",
+                fichier=SimpleUploadedFile("test.pdf", f.read()),
+                type_document=Document.PDF,
+                source="Test source"
+            )
+        
+        self.assertEqual(document.formation, self.formation)
+        self.assertEqual(document.nom_fichier, "Test PDF")
+        self.assertEqual(document.type_document, Document.PDF)
+        self.assertEqual(document.source, "Test source")
+        self.assertTrue(document.taille_fichier > 0)
+
+    def test_str_method(self):
+        """Test de la méthode __str__"""
+        with open(self.temp_pdf.name, 'rb') as f:
+            document = Document.objects.create(
+                formation=self.formation,
+                nom_fichier="Document de test",
+                fichier=SimpleUploadedFile("test.pdf", f.read()),
+                type_document=Document.PDF
+            )
+        
+        self.assertEqual(str(document), "Document de test (PDF)")
+        
+        # Test avec un nom long
+        with open(self.temp_pdf.name, 'rb') as f:
+            document_long = Document.objects.create(
+                formation=self.formation,
+                nom_fichier="A" * 60,  # Nom > 50 caractères
+                fichier=SimpleUploadedFile("test2.pdf", f.read()),
+                type_document=Document.PDF
+            )
+        
+        self.assertEqual(str(document_long), "A" * 50 + "... (PDF)")
 
 
 class HistoriqueFormationTestCase(TestCase):
+    """Tests pour le modèle HistoriqueFormation"""
+
     def setUp(self):
-        self.centre = Centre.objects.create(nom="Centre de Test")
+        # Créer les objets nécessaires
+        self.centre = Centre.objects.create(nom="Centre Test")
+        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS)
         self.type_offre = TypeOffre.objects.create(nom=TypeOffre.CRIF)
-        self.statut_initial = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS, couleur="#FF0000")
-        self.statut_final = Statut.objects.create(nom=Statut.FORMATION_EN_COURS, couleur="#00FF00")
-        self.utilisateur = Utilisateur.objects.create_user(username="testuser")
+        self.user = User.objects.create_user(username="testuser", password="password")
         
         self.formation = Formation.objects.create(
             nom="Formation Test",
             centre=self.centre,
+            statut=self.statut,
             type_offre=self.type_offre,
-            statut=self.statut_final
+            prevus_crif=10,
+            inscrits_crif=5,
+            utilisateur=self.user
         )
-        
-        self.historique = HistoriqueFormation.objects.create(
+
+    def test_historique_creation(self):
+        """Test de création d'un historique"""
+        historique = HistoriqueFormation.objects.create(
             formation=self.formation,
-            utilisateur=self.utilisateur,
-            action="Modification du statut",
-            ancien_statut=self.statut_initial.nom,
-            nouveau_statut=self.statut_final.nom,
-            inscrits_total=12,
-            inscrits_crif=8,
-            inscrits_mp=4,
-            total_places=20,
-            semaine=timezone.now().isocalendar()[1],
-            mois=timezone.now().month,
-            annee=timezone.now().year
-        )
-
-    def test_str_representation(self):
-        self.assertEqual(
-            str(self.historique), 
-            f"Formation Test - {self.historique.created_at.strftime('%Y-%m-%d')}"
-        )
-    
-    def test_taux_remplissage(self):
-        self.assertEqual(self.historique.taux_remplissage, 60.0)  # 12/20 * 100
-        
-        # Test avec total_places à 0
-        self.historique.total_places = 0
-        self.assertEqual(self.historique.taux_remplissage, 0)
-
-
-class RapportTestCase(TestCase):
-    def setUp(self):
-        self.centre = Centre.objects.create(nom="Centre de Test")
-        self.type_offre = TypeOffre.objects.create(nom=TypeOffre.CRIF)
-        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS, couleur="#FF0000")
-        
-        self.formation = Formation.objects.create(
-            nom="Formation Test",
-            centre=self.centre,
-            type_offre=self.type_offre,
-            statut=self.statut
+            utilisateur=self.user,
+            action="modification",
+            ancien_statut=Statut.RECRUTEMENT_EN_COURS,
+            nouveau_statut=Statut.FORMATION_EN_COURS,
+            details={"prevus_crif": {"ancien": 10, "nouveau": 12}}
         )
         
-        self.rapport = Rapport.objects.create(
+        self.assertEqual(historique.formation, self.formation)
+        self.assertEqual(historique.utilisateur, self.user)
+        self.assertEqual(historique.action, "modification")
+        self.assertEqual(historique.ancien_statut, Statut.RECRUTEMENT_EN_COURS)
+        self.assertEqual(historique.nouveau_statut, Statut.FORMATION_EN_COURS)
+        self.assertEqual(historique.details["prevus_crif"]["ancien"], 10)
+        self.assertEqual(historique.details["prevus_crif"]["nouveau"], 12)
+
+    def test_auto_fields_calculation(self):
+        """Test du calcul automatique des champs lors de la sauvegarde"""
+        historique = HistoriqueFormation.objects.create(
             formation=self.formation,
-            periode=Rapport.MENSUEL,
-            date_debut=timezone.now().date() - timedelta(days=30),
-            date_fin=timezone.now().date(),
-            total_inscrits=15,
-            inscrits_crif=10,
-            inscrits_mp=5,
-            total_places=20,
-            nombre_evenements=3,
-            nombre_candidats=25,
-            nombre_entretiens=18
+            utilisateur=self.user,
+            action="modification"
         )
+        
+        # Vérifier que les champs liés à la formation sont bien copiés
+        self.assertEqual(historique.inscrits_total, 5)
+        self.assertEqual(historique.inscrits_crif, 5)
+        self.assertEqual(historique.inscrits_mp, 0)
+        self.assertEqual(historique.total_places, 10)
+        
+        # Vérifier le calcul du taux de remplissage
+        self.assertEqual(historique.taux_remplissage, 50.0)  # (5/10)*100
+        
+        # Vérifier les champs temporels
+        self.assertIsNotNone(historique.semaine)
+        self.assertIsNotNone(historique.mois)
+        self.assertIsNotNone(historique.annee)
 
-    def test_str_representation(self):
-        self.assertEqual(
-            str(self.rapport), 
-            f"Rapport Formation Test - Mensuel ({self.rapport.date_debut} à {self.rapport.date_fin})"
-        )
-    
-    def test_taux_remplissage(self):
-        self.assertEqual(self.rapport.taux_remplissage, 75.0)  # 15/20 * 100
-    
-    def test_taux_transformation(self):
-        self.assertEqual(self.rapport.taux_transformation, 60.0)  # 15/25 * 100
-    
-    def test_validation_dates(self):
-        # Date de fin antérieure à la date de début
-        rapport_invalide = Rapport(
+    def test_str_method(self):
+        """Test de la méthode __str__"""
+        historique = HistoriqueFormation.objects.create(
             formation=self.formation,
-            periode=Rapport.MENSUEL,
-            date_debut=timezone.now().date(),
-            date_fin=timezone.now().date() - timedelta(days=1),
-            total_inscrits=15,
-            total_places=20
-        )
-        with self.assertRaises(ValidationError):
-            rapport_invalide.full_clean()
-
-
-class ParametreTestCase(TestCase):
-    def setUp(self):
-        self.parametre = Parametre.objects.create(
-            cle="email_notification",
-            valeur="admin@example.com",
-            description="Email pour les notifications système"
-        )
-
-    def test_str_representation(self):
-        self.assertEqual(str(self.parametre), "email_notification")
-
-
-class RechercheTestCase(TestCase):
-    def setUp(self):
-        self.centre = Centre.objects.create(nom="Centre de Test")
-        self.type_offre = TypeOffre.objects.create(nom=TypeOffre.CRIF)
-        self.statut = Statut.objects.create(nom=Statut.RECRUTEMENT_EN_COURS, couleur="#FF0000")
-        self.utilisateur = Utilisateur.objects.create_user(username="testuser")
-        
-        self.recherche = Recherche.objects.create(
-            utilisateur=self.utilisateur,
-            terme_recherche="formation python",
-            filtre_centre=self.centre,
-            filtre_type_offre=self.type_offre,
-            filtre_statut=self.statut,
-            date_debut=timezone.now().date() - timedelta(days=30),
-            date_fin=timezone.now().date() + timedelta(days=30),
-            nombre_resultats=5,
-            temps_execution=0.324,
-            adresse_ip="127.0.0.1",
-            user_agent="Mozilla/5.0"
+            action="modification"
         )
         
-        self.recherche_sans_resultats = Recherche.objects.create(
-            terme_recherche="formation inexistante",
-            nombre_resultats=0
-        )
-
-    def test_str_representation(self):
-        terme = self.recherche.terme_recherche or "Sans terme"
-        utilisateur = self.recherche.utilisateur or "Anonyme"
-        self.assertEqual(
-            str(self.recherche), 
-            f"Recherche '{terme}' par {utilisateur} ({self.recherche.nombre_resultats} résultats)"
-        )
-        
-        terme = self.recherche_sans_resultats.terme_recherche or "Sans terme"
-        utilisateur = self.recherche_sans_resultats.utilisateur or "Anonyme"
-        self.assertEqual(
-            str(self.recherche_sans_resultats), 
-            f"Recherche '{terme}' par {utilisateur} ({self.recherche_sans_resultats.nombre_resultats} résultats)"
-        )
-    
-    def test_a_trouve_resultats(self):
-        self.assertTrue(self.recherche.a_trouve_resultats)
-        self.assertFalse(self.recherche_sans_resultats.a_trouve_resultats)
+        expected_str = f"Formation Test - {historique.created_at.strftime('%Y-%m-%d')}"
+        self.assertEqual(str(historique), expected_str)

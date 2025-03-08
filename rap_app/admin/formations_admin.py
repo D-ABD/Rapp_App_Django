@@ -44,7 +44,7 @@ class FormationAdmin(admin.ModelAdmin):
     list_display = (
         "nom", "centre", "type_offre", "statut", "start_date", "end_date",
         "get_total_places", "get_total_inscrits", "get_a_recruter", "get_saturation",
-        "total_evenements", "dernier_commentaire", "is_a_recruter", "utilisateur"
+        "nombre_evenements", "dernier_commentaire", "is_a_recruter", "utilisateur"
     )
 
     list_filter = ("centre", "type_offre", "statut", "start_date", "end_date", "convocation_envoie")
@@ -113,22 +113,17 @@ class FormationAdmin(admin.ModelAdmin):
         ]
         return format_html("<br>".join(liens))
 
-
     get_documents_list.short_description = "Documents associés"
 
     def save_model(self, request, obj, form, change):
-        """Met à jour les champs calculés et assigne automatiquement l'utilisateur avant de sauvegarder."""
+        """Assigne automatiquement l'utilisateur avant de sauvegarder."""
         
         # Assigne l'utilisateur s'il n'est pas défini
         if not obj.utilisateur:
             obj.utilisateur = request.user
         
-        # Mise à jour automatique des valeurs calculées
-        obj.saturation = (obj.total_inscrits / obj.total_places) * 100 if obj.total_places > 0 else 0
-
-        # Mise à jour du dernier commentaire
-        dernier_commentaire = obj.commentaires.order_by('-created_at').first()
-        obj.dernier_commentaire = dernier_commentaire.contenu if dernier_commentaire else None
-
+        # Le calcul de saturation est maintenant géré dans le modèle
+        # Nous n'avons donc plus besoin de le faire ici
+        
+        # Sauvegarde l'objet
         super().save_model(request, obj, form, change)
-

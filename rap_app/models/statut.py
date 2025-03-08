@@ -1,15 +1,24 @@
 # models/statut.py
-import random
 from django.db import models
 from django.core.exceptions import ValidationError
 from .base import BaseModel
 
-def generate_random_color():
+def get_default_color(statut_nom):
     """
-    Génère une couleur hexadécimale aléatoire.
-    Exemple de sortie : "#A3B2C1"
+    Retourne une couleur prédéfinie selon le type de statut.
     """
-    return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+    COULEURS_PREDEFINIES = {
+        'non_defini': "#A0A0A0",         # Gris
+        'recrutement_en_cours': "#4CAF50", # Vert
+        'formation_en_cours': "#2196F3",  # Bleu
+        'formation_a_annuler': "#FF9800", # Orange
+        'formation_a_repousser': "#FFEB3B", # Jaune
+        'formation_annulee': "#F44336",   # Rouge
+        'pleine': "#9C27B0",             # Violet
+        'quasi_pleine': "#3F51B5",       # Indigo
+        'autre': "#795548",              # Marron
+    }
+    return COULEURS_PREDEFINIES.get(statut_nom, "#607D8B")  # Bleu-gris par défaut
 
 class Statut(BaseModel):
     """
@@ -61,12 +70,12 @@ class Statut(BaseModel):
         max_length=7,  # Format #RRGGBB
         verbose_name="Couleur", 
         help_text="Couleur hexadécimale (ex: #FF5733)",
-        blank=True  # Permet d'assigner une couleur automatique si vide
+        blank=True  # Permet d'assigner une couleur par défaut si vide
     )
     """
     Code couleur associé au statut.
     Exemple : `#FF0000` pour rouge, `#00FF00` pour vert.
-    Si ce champ est vide, une couleur aléatoire sera attribuée automatiquement.
+    Si ce champ est vide, une couleur prédéfinie selon le type de statut sera attribuée.
     """
 
     description_autre = models.CharField(
@@ -101,11 +110,11 @@ class Statut(BaseModel):
     def save(self, *args, **kwargs):
         """
         Sauvegarde avec validation :
-        - Assigne une couleur aléatoire si aucune couleur n'est spécifiée.
+        - Assigne une couleur prédéfinie si aucune couleur n'est spécifiée.
         - Appelle `clean()` avant l'enregistrement en base de données.
         """
         if not self.couleur:
-            self.couleur = generate_random_color()
+            self.couleur = get_default_color(self.nom)
         
         self.full_clean()  # Applique les validations avant l'enregistrement
         super().save(*args, **kwargs)

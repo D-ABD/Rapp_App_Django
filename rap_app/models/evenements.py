@@ -75,20 +75,20 @@ class Evenement(BaseModel):
 
 # 🚀 Signaux pour mettre à jour `nombre_evenements` dans `Formation`
 @receiver(post_save, sender=Evenement)
-def increment_nombre_evenements(sender, instance, created, **kwargs):
-    """
-    Incrémente `nombre_evenements` dans `Formation` lorsqu'un événement est ajouté.
-    """
-    if created and instance.formation:
-        Formation.objects.filter(id=instance.formation.id).update(nombre_evenements=F('nombre_evenements') + 1)
+def update_nombre_evenements(sender, instance, **kwargs):
+    """Met à jour le nombre d'événements dans la formation associée."""
+    if instance.formation:
+        # Recalcule le nombre total d'événements à chaque modification
+        count = Evenement.objects.filter(formation=instance.formation).count()
+        Formation.objects.filter(id=instance.formation.id).update(nombre_evenements=count)
+        # Rafraîchir la formation
+        if hasattr(instance, 'formation'):
+            instance.formation.refresh_from_db()
 
 @receiver(post_delete, sender=Evenement)
-def decrement_nombre_evenements(sender, instance, **kwargs):
-    """
-    Décrémente `nombre_evenements` dans `Formation` lorsqu'un événement est supprimé.
-    Assure que `nombre_evenements` ne descend jamais en dessous de 0.
-    """
-    if instance.formation:
-        formation = instance.formation
-        formation.nombre_evenements = max(0, formation.nombre_evenements - 1)
-        formation.save()
+def update_nombre_evenements_after_delete(sender, instance, **kwargs):
+    """Met à jour le nombre d'événements après suppression."""
+    if hasattr(instance, 'formation') and instance.formation:
+        # Recalcule le nombre après suppression
+        count = Evenement.objects.filter(formation=instance.formation).count()
+        Formation.objects.filter(id=instance.formation.id).update(nombre_evenements=count)

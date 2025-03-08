@@ -3,7 +3,6 @@ from django.contrib.auth import get_user_model
 from ..models.commentaires import Commentaire
 
 
-
 Utilisateur = get_user_model()
 
 @admin.register(Commentaire)
@@ -44,16 +43,15 @@ class CommentaireAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
     list_per_page = 20
 
-def save_model(self, request, obj, form, change):
-    """
-    Assigne l'utilisateur connecté à l'ajout d'un commentaire.
-    """
-    if not obj.utilisateur:
-        # Vérifie que request.user est bien du bon type
-        if isinstance(request.user, Utilisateur):
-            obj.utilisateur = request.user
-        else:
-            obj.utilisateur = Utilisateur.objects.get(pk=request.user.pk)  # Convertit en `Utilisateur`
-    
-    obj.save()
-
+    def save_model(self, request, obj, form, change):
+        """
+        Assigne l'utilisateur connecté à l'ajout d'un commentaire.
+        """
+        if not obj.utilisateur:
+            # Vérifie que request.user est bien du bon type
+            if isinstance(request.user, Utilisateur):
+                obj.utilisateur = request.user
+            else:
+                obj.utilisateur = Utilisateur.objects.get(pk=request.user.pk)  # Convertit en `Utilisateur`
+        
+        obj.save()
