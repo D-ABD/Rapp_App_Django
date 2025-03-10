@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Détail du Document{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Détail du Document</h1>
+        <div>
+            <a href="{% url 'document-list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+            <a href="{{ document.fichier.url }}" target="_blank" class="btn btn-primary ms-2">
+                <i class="fas fa-download"></i> Télécharger
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-7">
+            <!-- Informations principales -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Informations du document</h5>
+                        <div class="btn-group">
+                            <a href="{% url 'document-update' document.id %}" class="btn btn-warning">
+                                <i class="fas fa-edit"></i> Modifier
+                            </a>
+                            <a href="{% url 'document-delete' document.id %}" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6>Nom du fichier</h6>
+                            <p>{{ document.nom_fichier }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Type de document</h6>
+                            <p>{{ document.get_type_document_display }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6>Formation associée</h6>
+                            <p>
+                                <a href="{% url 'formation-detail' document.formation.id %}">
+                                    {{ document.formation.nom }}
+                                </a>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Taille du fichier</h6>
+                            <p>
+                                {% if document.taille_fichier %}
+                                    {% if document.taille_fichier > 1024 %}
+                                        {{ document.taille_fichier|divisibleby:"1024"|floatformat:2 }} Mo
+                                    {% else %}
+                                        {{ document.taille_fichier }} Ko
+                                    {% endif %}
+                                {% else %}
+                                    Non disponible
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    {% if document.source %}
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <h6>Source</h6>
+                            <p>{{ document.source }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Informations sur la dernière mise à jour -->
+            <div class="card mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Historique</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Créé le :</strong> {{ document.created_at|date:"d/m/Y H:i" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Dernière mise à jour :</strong> {{ document.updated_at|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <!-- Aperçu du document -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Aperçu du document</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if document.type_document == 'pdf' %}
+                        <div class="ratio ratio-4x3">
+                            <iframe src="{{ document.fichier.url }}" title="{{ document.nom_fichier }}" allowfullscreen></iframe>
+                        </div>
+                    {% elif document.type_document == 'image' %}
+                        <img src="{{ document.fichier.url }}" alt="{{ document.nom_fichier }}" class="img-fluid">
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-file fa-5x text-secondary mb-3"></i>
+                            <p>L'aperçu n'est pas disponible pour ce type de document.</p>
+                            <a href="{{ document.fichier.url }}" class="btn btn-primary" target="_blank">
+                                <i class="fas fa-external-link-alt me-2"></i> Ouvrir le fichier
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

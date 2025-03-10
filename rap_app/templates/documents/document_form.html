@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ titre }}</h1>
+        <div>
+            {% if document.id %}
+                <a href="{% url 'document-detail' document.id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour au détail
+                </a>
+            {% else %}
+                <a href="{% url 'document-list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour à la liste
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Formulaire</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Formation -->
+                <div class="mb-3">
+                    <label for="{{ form.formation.id_for_label }}" class="form-label">Formation associée</label>
+                    {{ form.formation }}
+                    {% if form.formation.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.formation.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Nom du fichier -->
+                <div class="mb-3">
+                    <label for="{{ form.nom_fichier.id_for_label }}" class="form-label">Nom du fichier</label>
+                    {{ form.nom_fichier }}
+                    {% if form.nom_fichier.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.nom_fichier.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Type de document -->
+                <div class="mb-3">
+                    <label for="{{ form.type_document.id_for_label }}" class="form-label">Type de document</label>
+                    {{ form.type_document }}
+                    {% if form.type_document.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.type_document.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Fichier -->
+                <div class="mb-3">
+                    <label for="{{ form.fichier.id_for_label }}" class="form-label">Fichier</label>
+                    <div class="input-group">
+                        {{ form.fichier }}
+                        {% if document.fichier %}
+                            <a href="{{ document.fichier.url }}" class="btn btn-outline-secondary" target="_blank">
+                                Voir le fichier actuel
+                            </a>
+                        {% endif %}
+                    </div>
+                    {% if form.fichier.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.fichier.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <small class="form-text text-muted">
+                        {% if document.id %}
+                            Laissez ce champ vide pour conserver le fichier actuel.
+                        {% endif %}
+                        Les types de fichier autorisés dépendent du type de document sélectionné.
+                    </small>
+                </div>
+
+                <!-- Source -->
+                <div class="mb-3">
+                    <label for="{{ form.source.id_for_label }}" class="form-label">Source (optionnel)</label>
+                    {{ form.source }}
+                    {% if form.source.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.source.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <small class="form-text text-muted">Indiquez la provenance ou l'auteur du document.</small>
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Ajouter les classes Bootstrap aux champs du formulaire
+    document.addEventListener('DOMContentLoaded', function() {
+        // Formation
+        var formationField = document.getElementById('{{ form.formation.id_for_label }}');
+        if(formationField) {
+            formationField.classList.add('form-select');
+        }
+        
+        // Nom du fichier
+        var nomFichierField = document.getElementById('{{ form.nom_fichier.id_for_label }}');
+        if(nomFichierField) {
+            nomFichierField.classList.add('form-control');
+        }
+        
+        // Type de document
+        var typeDocumentField = document.getElementById('{{ form.type_document.id_for_label }}');
+        if(typeDocumentField) {
+            typeDocumentField.classList.add('form-select');
+        }
+        
+        // Fichier
+        var fichierField = document.getElementById('{{ form.fichier.id_for_label }}');
+        if(fichierField) {
+            fichierField.classList.add('form-control');
+        }
+        
+        // Source
+        var sourceField = document.getElementById('{{ form.source.id_for_label }}');
+        if(sourceField) {
+            sourceField.classList.add('form-control');
+        }
+    });
+</script>
+{% endblock %}

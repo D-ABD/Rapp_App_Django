@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supprimer le Document{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">Confirmation de suppression</h5>
+        </div>
+        <div class="card-body">
+            <h4 class="mb-4">Êtes-vous sûr de vouloir supprimer ce document ?</h4>
+            
+            <div class="alert alert-warning">
+                <p><strong>Attention :</strong> Cette action est irréversible. Le fichier sera également supprimé du serveur.</p>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Détails du document</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Nom</dt>
+                                <dd class="col-sm-8">{{ document.nom_fichier }}</dd>
+                                
+                                <dt class="col-sm-4">Type</dt>
+                                <dd class="col-sm-8">{{ document.get_type_document_display }}</dd>
+                                
+                                <dt class="col-sm-4">Formation</dt>
+                                <dd class="col-sm-8">{{ document.formation.nom }}</dd>
+                                
+                                <dt class="col-sm-4">Taille</dt>
+                                <dd class="col-sm-8">
+                                    {% if document.taille_fichier %}
+                                        {% if document.taille_fichier > 1024 %}
+                                            {{ document.taille_fichier|divisibleby:"1024"|floatformat:2 }} Mo
+                                        {% else %}
+                                            {{ document.taille_fichier }} Ko
+                                        {% endif %}
+                                    {% else %}
+                                        Non disponible
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">Date d'ajout</dt>
+                                <dd class="col-sm-8">{{ document.created_at|date:"d/m/Y" }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-center border p-3">
+                                {% if document.type_document == 'image' %}
+                                    <img src="{{ document.fichier.url }}" alt="{{ document.nom_fichier }}" class="img-fluid" style="max-height: 150px;">
+                                {% else %}
+                                    <i class="fas {% if document.type_document == 'pdf' %}fa-file-pdf{% elif document.type_document == 'contrat' %}fa-file-contract{% else %}fa-file{% endif %} fa-5x text-secondary"></i>
+                                {% endif %}
+                                <div class="mt-3">
+                                    <a href="{{ document.fichier.url }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                                        <i class="fas fa-external-link-alt me-1"></i> Voir le fichier
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="d-flex justify-content-end">
+                    <a href="{% url 'document-detail' document.id %}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-times"></i> Annuler
+                    </a>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Confirmer la suppression
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

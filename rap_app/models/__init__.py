@@ -19,6 +19,7 @@ __all__ = [
     'Formation',
     'FormationManager',
     'Commentaire',
+    'Entreprise',
     'Evenement',
     'Document',
     'HistoriqueFormation',

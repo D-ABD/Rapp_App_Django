@@ -125,7 +125,7 @@ class Statut(BaseModel):
         """
         if self.nom == self.AUTRE and self.description_autre:
             return f"{self.description_autre} - {self.couleur}"
-        return f"{self.get_nom_display()} - {self.couleur}"
+        return f"{self.get_nom_display()} "
 
     class Meta:
         verbose_name = "Statut"

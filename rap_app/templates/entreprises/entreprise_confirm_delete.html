@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Supprimer l'entreprise</h1>
+
+<p>Êtes-vous sûr de vouloir supprimer l'entreprise "{{ entreprise.nom }}" ?</p>
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">Confirmer la suppression</button>
+</form>
+
+<!-- Lien de retour -->
+<a href="{% url 'entreprise-detail' entreprise.pk %}">Annuler</a>
+{% endblock %}

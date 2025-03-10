@@ -5,7 +5,7 @@ import os
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from .base import BaseModel
-from .formations import Formation
+from .formations import Formation, User
 
 
 class Document(BaseModel):
@@ -33,6 +33,7 @@ class Document(BaseModel):
     source = models.TextField(null=True, blank=True, verbose_name="Source du document")
     type_document = models.CharField( max_length=20, choices=TYPE_DOCUMENT_CHOICES, default=AUTRE,verbose_name="Type de document")
     taille_fichier = models.PositiveIntegerField(null=True,blank=True, verbose_name="Taille du fichier (Ko)")
+    utilisateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
     def __str__(self):
         """

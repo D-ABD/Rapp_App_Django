@@ -50,6 +50,7 @@ from .types_offre_views import (
 )
 
 
+from .documents_views import DocumentDownloadView
 
 
 

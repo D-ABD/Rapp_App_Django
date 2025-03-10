@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ titre }}</h1>
+        <div>
+            {% if commentaire.id %}
+                <a href="{% url 'commentaire-detail' commentaire.id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour au détail
+                </a>
+            {% else %}
+                <a href="{% url 'commentaire-list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour à la liste
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Formulaire</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Formation -->
+                <div class="mb-3">
+                    <label for="{{ form.formation.id_for_label }}" class="form-label">Formation</label>
+                    {{ form.formation }}
+                    {% if form.formation.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.formation.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Contenu -->
+                <div class="mb-3">
+                    <label for="{{ form.contenu.id_for_label }}" class="form-label">Contenu du commentaire</label>
+                    {{ form.contenu }}
+                    {% if form.contenu.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.contenu.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <small class="form-text text-muted">Décrivez votre commentaire concernant cette formation.</small>
+                </div>
+
+                <!-- Saturation -->
+                <div class="mb-3">
+                    <label for="{{ form.saturation.id_for_label }}" class="form-label">Niveau de saturation (%)</label>
+                    {{ form.saturation }}
+                    {% if form.saturation.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.saturation.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <small class="form-text text-muted">Indiquez le niveau de saturation actuel (0-100).</small>
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Ajouter les classes Bootstrap aux champs du formulaire
+    document.addEventListener('DOMContentLoaded', function() {
+        // Ajouter la classe form-select au champ formation
+        var formationField = document.getElementById('{{ form.formation.id_for_label }}');
+        if(formationField) {
+            formationField.classList.add('form-select');
+        }
+        
+        // Ajouter la classe form-control au champ contenu
+        var contenuField = document.getElementById('{{ form.contenu.id_for_label }}');
+        if(contenuField) {
+            contenuField.classList.add('form-control');
+            contenuField.rows = 5;
+        }
+        
+        // Ajouter la classe form-control au champ saturation
+        var saturationField = document.getElementById('{{ form.saturation.id_for_label }}');
+        if(saturationField) {
+            saturationField.classList.add('form-control');
+            saturationField.type = 'number';
+            saturationField.min = 0;
+            saturationField.max = 100;
+        }
+    });
+</script>
+{% endblock %}

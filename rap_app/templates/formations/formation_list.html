@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}  <!-- Charger les filtres personnalisés -->
+
+{% block title %}Liste des Formations{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Liste des Formations</h1>
+        <a href="{% url 'formation-create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nouvelle formation
+        </a>
+    </div>
+
+    <!-- 📊 Statistiques globales -->
+    <div class="row mb-4">
+        {% for stat, label, color in stats %}
+        <div class="col-md-2">
+            <div class="card text-white bg-{{ color }} h-100">
+                <div class="card-body text-center">
+                    <h5 class="card-title">{{ label }}</h5>
+                    <h2 class="card-text">{{ stat }}</h2>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 🔍 Affichage des filtres actifs -->
+    {% if filters.centre or filters.type_offre or filters.statut or filters.periode %}
+    <div class="alert alert-info">
+        <strong>Filtres appliqués :</strong>
+        {% if filters.centre %}Centre: {{ centres|get_value:filters.centre|default:"Inconnu" }}, {% endif %}
+        {% if filters.type_offre %}Type d'offre: {{ types_offre|get_value:filters.type_offre|default:"Inconnu" }}, {% endif %}
+        {% if filters.statut %}Statut: {{ statuts|get_value:filters.statut|default:"Inconnu" }}, {% endif %}
+        {% if filters.periode %}Période: {{ filters.periode }}{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- 🔍 Filtres -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Filtres avancés</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="centre" class="form-label">Centre</label>
+                    <select name="centre" id="centre" class="form-select">
+                        <option value="">Tous</option>
+                        {% for centre in centres %}
+                            <option value="{{ centre.id }}" {% if filters.centre == centre.id|stringformat:"s" %}selected{% endif %}>
+                                {{ centre.nom }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="type_offre" class="form-label">Type d'offre</label>
+                    <select name="type_offre" id="type_offre" class="form-select">
+                        <option value="">Tous</option>
+                        {% for type_offre in types_offre %}
+                            <option value="{{ type_offre.id }}" {% if filters.type_offre == type_offre.id|stringformat:"s" %}selected{% endif %}>
+                                {{ type_offre.nom }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="statut" class="form-label">Statut</label>
+                    <select name="statut" id="statut" class="form-select">
+                        <option value="">Tous</option>
+                        {% for statut in statuts %}
+                            <option value="{{ statut.id }}" {% if filters.statut == statut.id|stringformat:"s" %}selected{% endif %}>
+                                {{ statut.nom }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="periode" class="form-label">Période</label>
+                    <select name="periode" id="periode" class="form-select">
+                        <option value="">Toutes</option>
+                        <option value="active" {% if filters.periode == 'active' %}selected{% endif %}>Actives</option>
+                        <option value="a_venir" {% if filters.periode == 'a_venir' %}selected{% endif %}>À venir</option>
+                        <option value="terminee" {% if filters.periode == 'terminee' %}selected{% endif %}>Terminées</option>
+                        <option value="a_recruter" {% if filters.periode == 'a_recruter' %}selected{% endif %}>À recruter</option>
+                    </select>
+                </div>
+
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Filtrer
+                    </button>
+                    <a href="{% url 'formation-list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-redo"></i> Réinitialiser
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 📋 Liste des formations -->
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Résultats ({{ formations.paginator.count }})</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if formations %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nom</th>
+                                <th>Centre</th>
+                                <th>Type</th>
+                                <th>Statut</th>
+                                <th>N° Offre</th>
+                                <th>Début</th>
+                                <th>Fin</th>
+                                <th>Places prévues CRIF</th>
+                                <th>Places prévues MP</th>
+                                <th>Inscrits CRIF</th>
+                                <th>Inscrits MP</th>
+                                <th>Total Places</th>
+                                <th>Disponibles CRIF/MP</th>
+                                <th>Saturation (%)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for formation in formations %}
+                            <tr>
+                                <td><a href="{% url 'formation-detail' formation.id %}">{{ formation.nom }}</a></td>
+                                <td>{{ formation.centre.nom }}</td>
+                                <td>{{ formation.type_offre }}</td>
+                                <td><span class="badge" style="background-color: {{ formation.statut.couleur }};">{{ formation.statut }}</span></td>
+                                <td>{{ formation.num_offre|default:"-" }}</td>
+                                <td>{{ formation.start_date|date:"d/m/Y"|default:"-" }}</td>
+                                <td>{{ formation.end_date|date:"d/m/Y"|default:"-" }}</td>
+                                <td>{{ formation.prevus_crif }}</td>
+                                <td>{{ formation.prevus_mp }}</td>
+                                <td>{{ formation.inscrits_crif }}</td>
+                                <td>{{ formation.inscrits_mp }}</td>
+                                <td>{{ formation.total_places }}</td>
+                                <td>{{ formation.places_restantes_crif }} / {{ formation.places_restantes_mp }}</td>
+                                <td>{{ formation.taux_saturation|floatformat:1 }}%</td>
+                                <td>
+                                    <a href="{% url 'formation-detail' formation.id %}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-eye"></i> Voir
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-center my-4">
+                    {% include 'includes/pagination.html' with page_obj=formations %}
+                </div>
+            {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted">Aucune formation trouvée. Veuillez modifier vos critères de recherche.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

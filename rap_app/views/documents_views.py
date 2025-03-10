@@ -1,168 +1,135 @@
-from django.urls import reverse
+from django.urls import reverse_lazy
+from django.db.models import Q
 from django.contrib.auth.mixins import PermissionRequiredMixin
-from django.shortcuts import get_object_or_404
-from django.contrib import messages
-from django.http import FileResponse, Http404
-from django.conf import settings
-from django.views.generic import View
-import os
+from django.shortcuts import  get_object_or_404
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
+
 
 from ..models import Document, Formation
 from .base_views import BaseListView, BaseDetailView, BaseCreateView, BaseUpdateView, BaseDeleteView
 
 
 class DocumentListView(BaseListView):
-    """Liste des documents"""
+    """Vue listant tous les documents avec options de filtrage"""
     model = Document
     context_object_name = 'documents'
+    template_name = 'documents/document_list.html'
     
     def get_queryset(self):
+        """
+        Récupère la liste des documents avec possibilité de filtrage par:
+        - Formation associée
+        - Type de document
+        - Nom de fichier (recherche textuelle)
+        """
         queryset = super().get_queryset().select_related('formation')
         
-        # Filtrer par formation si spécifié
+        # Filtrage par formation
         formation_id = self.request.GET.get('formation')
         if formation_id:
             queryset = queryset.filter(formation_id=formation_id)
-        
-        # Recherche par nom de fichier
+            
+        # Filtrage par type de document
+        type_doc = self.request.GET.get('type_document')
+        if type_doc:
+            queryset = queryset.filter(type_document=type_doc)
+            
+        # Recherche textuelle
         q = self.request.GET.get('q')
         if q:
-            queryset = queryset.filter(nom_fichier__icontains=q)
-        
-        return queryset.order_by('-created_at')
+            queryset = queryset.filter(
+                Q(nom_fichier__icontains=q) | 
+                Q(source__icontains=q)
+            )
+            
+        return queryset
     
     def get_context_data(self, **kwargs):
+        """Ajout des filtres actuels et des options de filtre au contexte"""
         context = super().get_context_data(**kwargs)
         
-        # Formations pour le filtre
-        context['formations'] = Formation.objects.formations_actives().order_by('nom')
-        
-        # Filtres appliqués
+        # Filtres actuellement appliqués
         context['filters'] = {
             'formation': self.request.GET.get('formation', ''),
+            'type_document': self.request.GET.get('type_document', ''),
             'q': self.request.GET.get('q', ''),
         }
         
+        # Liste des formations pour le filtrage
+        context['formations'] = Formation.objects.all()
+        
+        # Types de documents pour le filtrage
+        context['types_document'] = Document.TYPE_DOCUMENT_CHOICES
+        
         return context
-
-
+class DocumentDownloadView(BaseDetailView):
+    """Vue pour télécharger un document"""
+    def get(self, request, pk):
+        document = get_object_or_404(Document, pk=pk)
+        response = HttpResponse(document.fichier, content_type='application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename="{document.nom_fichier}"'
+        return response
 class DocumentDetailView(BaseDetailView):
-    """Détail d'un document"""
+    """Vue affichant les détails d'un document"""
     model = Document
     context_object_name = 'document'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # Récupérer d'autres documents de la même formation
-        if self.object.formation:
-            context['autres_documents'] = self.object.formation.documents.exclude(
-                id=self.object.id
-            ).order_by('-created_at')[:5]
-        
-        return context
+    template_name = 'documents/document_detail.html'
 
 
 class DocumentCreateView(PermissionRequiredMixin, BaseCreateView):
-    """Création d'un document"""
+    """Vue permettant de créer un nouveau document"""
     model = Document
     permission_required = 'rap_app.add_document'
-    fields = ['formation', 'nom_fichier', 'fichier', 'source']
+    fields = ['formation', 'nom_fichier', 'fichier', 'source', 'type_document']
+    template_name = 'documents/document_form.html'
+    
+    def get_initial(self):
+        """Pré-remplit le formulaire avec la formation si spécifiée dans l'URL"""
+        initial = super().get_initial()
+        formation_id = self.request.GET.get('formation')
+        if formation_id:
+            initial['formation'] = formation_id
+        return initial
+    
+    def get_success_url(self):
+        """Redirige vers la formation associée après création"""
+        return reverse_lazy('formation-detail', kwargs={'pk': self.object.formation.pk})
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['titre'] = "Ajouter un document"
-        
-        # Pré-sélectionner la formation si fournie dans l'URL
-        formation_id = self.request.GET.get('formation')
-        if formation_id:
-            try:
-                formation = Formation.objects.get(pk=formation_id)
-                context['formation_preselected'] = formation
-            except Formation.DoesNotExist:
-                pass
-                
+        # Ajout de la liste des types de documents
+        context['types_document'] = Document.TYPE_DOCUMENT_CHOICES
         return context
-    
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        
-        # Pré-sélectionner la formation si fournie dans l'URL
-        formation_id = self.request.GET.get('formation')
-        if formation_id:
-            try:
-                formation = Formation.objects.get(pk=formation_id)
-                form.initial['formation'] = formation
-            except Formation.DoesNotExist:
-                pass
-        
-        return form
-    
-    def get_success_url(self):
-        # Si redirigé depuis la vue détaillée d'une formation, y retourner
-        if self.object.formation and self.request.GET.get('redirect_to_formation') == 'true':
-            return reverse('formation-detail', kwargs={'pk': self.object.formation.id})
-        return reverse('document-detail', kwargs={'pk': self.object.pk})
-
 
 class DocumentUpdateView(PermissionRequiredMixin, BaseUpdateView):
-    """Mise à jour d'un document"""
+    """Vue permettant de modifier un document existant"""
     model = Document
     permission_required = 'rap_app.change_document'
-    fields = ['formation', 'nom_fichier', 'fichier', 'source']
+    fields = ['nom_fichier', 'fichier', 'source', 'type_document']
+    template_name = 'documents/document_form.html'
+    
+    def get_success_url(self):
+        """Redirige vers la formation associée après modification"""
+        return reverse_lazy('formation-detail', kwargs={'pk': self.object.formation.pk})
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['titre'] = f"Modifier le document : {self.object.nom_fichier}"
+        # Ajout de la liste des types de documents
+        context['types_document'] = Document.TYPE_DOCUMENT_CHOICES
         return context
-    
-    def get_success_url(self):
-        # Si redirigé depuis la vue détaillée d'une formation, y retourner
-        if self.object.formation and self.request.GET.get('redirect_to_formation') == 'true':
-            return reverse('formation-detail', kwargs={'pk': self.object.formation.id})
-        return reverse('document-detail', kwargs={'pk': self.object.pk})
 
 
 class DocumentDeleteView(PermissionRequiredMixin, BaseDeleteView):
-    """Suppression d'un document"""
+    """Vue permettant de supprimer un document"""
     model = Document
     permission_required = 'rap_app.delete_document'
+    template_name = 'documents/document_confirm_delete.html'
     
     def get_success_url(self):
-        # Rediriger vers la formation si le document est lié à une formation
-        formation_id = self.object.formation.id if self.object.formation else None
-        if formation_id and self.request.GET.get('redirect_to_formation') == 'true':
-            return reverse('formation-detail', kwargs={'pk': formation_id})
-        return reverse('document-list')
-
-
-class DocumentDownloadView(View):
-    """Vue pour télécharger un document"""
+        """Redirige vers la formation associée après suppression"""
+        formation_id = self.object.formation.id
+        return reverse_lazy('formation-detail', kwargs={'pk': formation_id})
     
-    def get(self, request, pk):
-        document = get_object_or_404(Document, pk=pk)
-        
-        # Vérifier que l'utilisateur est authentifié
-        if not request.user.is_authenticated:
-            raise Http404("Document non disponible")
-            
-        # Construire le chemin du fichier
-        file_path = os.path.join(settings.MEDIA_ROOT, document.fichier.name)
-        
-        # Vérifier que le fichier existe
-        if not os.path.exists(file_path):
-            messages.error(request, f"Le fichier {document.nom_fichier} n'existe pas")
-            return reverse('document-detail', kwargs={'pk': document.pk})
-        
-        # Ouvrir et retourner le fichier
-        try:
-            response = FileResponse(open(file_path, 'rb'))
-            response['Content-Disposition'] = f'attachment; filename="{document.nom_fichier}"'
-            
-            # Enregistrer le téléchargement dans l'historique si nécessaire
-            # Ajouter votre code ici si vous souhaitez suivre les téléchargements
-            
-            return response
-        except Exception as e:
-            messages.error(request, f"Erreur lors du téléchargement : {str(e)}")
-            return reverse('document-detail', kwargs={'pk': document.pk})
+
