@@ -31,12 +31,7 @@ class FormationListView(BaseListView):
     paginate_by = 10  # ✅ Ajout de la pagination
 
     def get_queryset(self):
-        """
-        Récupère la liste des formations avec :
-        - Affichage de toutes les formations par défaut
-        - Filtrage par statut, type d'offre, centre si l'utilisateur sélectionne un filtre
-        - Calcul dynamique des indicateurs : total_places, taux_saturation, etc.
-        """
+        """Récupère la liste des formations avec options de filtrage et recherche par mots-clés."""
         today = timezone.now().date()
 
         queryset = Formation.objects.select_related('centre', 'type_offre', 'statut').annotate(
@@ -56,11 +51,20 @@ class FormationListView(BaseListView):
                 100.0 * (F('inscrits_crif') + F('inscrits_mp')) / 
                 (F('prevus_crif') + F('prevus_mp')), output_field=FloatField()
             ),
-            
-            
-        )  # ✅ On n'applique plus de filtre par défaut
+        )
 
         print("Formations récupérées avant filtrage :", queryset)  # ✅ Debug
+
+        # 🔍 Ajout de la recherche par mots-clés
+        mot_cle = self.request.GET.get('q', '').strip()
+        if mot_cle:
+            queryset = queryset.filter(
+                Q(nom__icontains=mot_cle) |
+                Q(num_offre__icontains=mot_cle) |
+                Q(centre__nom__icontains=mot_cle) |
+                Q(type_offre__nom__icontains=mot_cle) |
+                Q(statut__nom__icontains=mot_cle)
+            )
 
         # 🔍 Application des filtres SEULEMENT si une valeur est sélectionnée
         centre_id = self.request.GET.get('centre', '').strip()
@@ -86,7 +90,7 @@ class FormationListView(BaseListView):
 
         print("Formations après filtrage :", queryset)  # ✅ Debug
 
-        return queryset  # ✅ Retourne toutes les formations si aucun filtre n'est appliqué
+        return queryset
 
     def get_context_data(self, **kwargs):
         """Ajoute les statistiques, les centres, types d'offres et statuts au contexte pour le template."""
@@ -111,8 +115,10 @@ class FormationListView(BaseListView):
             'type_offre': self.request.GET.get('type_offre', ''),
             'statut': self.request.GET.get('statut', ''),
             'periode': self.request.GET.get('periode', ''),
+            'q': self.request.GET.get('q', ''),  # ✅ Ajout de la recherche au contexte
         }
-# Ajout des noms de colonnes pour l'affichage
+
+        # ✅ Ajout des noms de colonnes pour l'affichage
         context['colonnes'] = [
             {'nom': 'Nom', 'field': 'nom'},
             {'nom': 'Centre', 'field': 'centre__nom'},

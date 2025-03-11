@@ -25,7 +25,7 @@
                         <option value="">Toutes les formations</option>
                         {% for formation in formations %}
                             <option value="{{ formation.id }}" {% if filters.formation == formation.id|stringformat:"s" %}selected{% endif %}>
-                                {{ formation.nom }}
+                                {{ formation.nom }} - {{ formation.num_offre|default:"-" }}
                             </option>
                         {% endfor %}
                     </select>
@@ -75,7 +75,7 @@
                                 <tr>
                                     <td>
                                         <a href="{% url 'formation-detail' commentaire.formation.id %}">
-                                            {{ commentaire.formation.nom }}
+                                            {{ commentaire.formation.nom }} - {{ commentaire.formation.num_offre|default:"-" }}
                                         </a>
                                     </td>
                                     <td>{{ commentaire.utilisateur.username|default:"Anonyme" }}</td>

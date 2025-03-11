@@ -26,6 +26,11 @@
         </div>
         {% endfor %}
     </div>
+    <form method="GET">
+        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Rechercher une formation..." />
+        <button type="submit">🔍</button>
+    </form>
+    
 
     <!-- 🔍 Affichage des filtres actifs -->
     {% if filters.centre or filters.type_offre or filters.statut or filters.periode %}
@@ -135,7 +140,7 @@
                         <tbody>
                             {% for formation in formations %}
                             <tr>
-                                <td><a href="{% url 'formation-detail' formation.id %}">{{ formation.nom }}</a></td>
+                                <td><a href="{% url 'formation-detail' formation.id %}">{{ formation.nom }} - {{ formation.num_offre|default:"-" }}</a></td>
                                 <td>{{ formation.centre.nom }}</td>
                                 <td>{{ formation.type_offre }}</td>
                                 <td><span class="badge" style="background-color: {{ formation.statut.couleur }};">{{ formation.statut }}</span></td>
